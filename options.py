@@ -1,8 +1,9 @@
 import math
+import numpy as np
 
 
 class OptionsBlackScholes:
-    def __init__(self, strike: float, tau: float, type: string):
+    def __init__(self, strike: float, tau: float, put_call: str):
         self.strike = strike
         self.tau    = tau
 
@@ -10,10 +11,10 @@ class OptionsBlackScholes:
         pass
 
     
-class European(Options):
+class European(OptionsBlackScholes):
     def __init__(self, strike: float, rate: float, 
                  tau: float, sigma: float, bounds: tuple, 
-                 put_call: string):
+                 put_call: str):
 
         self.strike   = strike
         self.rate     = rate
@@ -39,7 +40,7 @@ class European(Options):
     def c(self, t: float, spot: float): 
         """Compute coefficient for value"""
         return self.rate
-    def c(self, t: float, spot: float):
+    def d(self, t: float, spot: float):
         """Compute coefficient for intercept"""
         return 0
 
@@ -72,10 +73,10 @@ class European(Options):
 
 
 
-class Barrier(Options):
+class Barrier(OptionsBlackScholes):
     def __init__(self, strike: float, rate: float, 
                  tau: float, sigma: float, barrier: float, bounds: tuple, 
-                 knock: string, put_call: string):
+                 knock: str, put_call: str):
 
         # Check if knock is 'in' or 'out'
         # Check if put_call is 'put' or 'call'
@@ -88,6 +89,7 @@ class Barrier(Options):
         self.x_up     = bounds[1]
         self.barrier  = barrier
         self.put_call = put_call
+        self.knock    = knock
 
     def _is_zero(self, spot):
         """Compute upper boundary conditions for time"""

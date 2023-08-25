@@ -1,3 +1,6 @@
+import numpy as np
+import math
+
 class PDESolver:
     def __init__(self, pde, imax, jmax):
         """ Constructor
@@ -12,7 +15,7 @@ class PDESolver:
         self.jmax = jmax
 
         # Initialising dt and dx 
-        self.dt = pde.t_up / imax
+        self.dt = pde.tau / imax
         self.dx = (pde.x_up - pde.x_low) / jmax
 
         # Initialising grid
@@ -33,9 +36,9 @@ class PDESolver:
     def d(self, i, j): return self.pde.d(self.t(i), self.x(j))
     
     # Helper umbrella function to get boundary conditions
-    def t_up(self, j): return self.pde.bound_cond_tup(self.x(j))
-    def x_low(self, i): return self.pde.bound_cond_x_low(self.t(i))
-    def x_up(self, i): return self.pde.bound_cond_x_up(self.t(i))
+    def t_up(self, j): return self.pde.boundary_condition_tau(self.x(j))
+    def x_low(self, i): return self.pde.boundary_condition_x_low(self.t(i))
+    def x_up(self, i): return self.pde.boundary_condition_x_up(self.t(i))
 
     def interpolate(self, t, x):
         """ Get interpolated solution value at given time and space
@@ -126,3 +129,85 @@ class ExplicitScheme(PDESolver):
                                             + self.B(i, j) * self.grid[i, j]
                                             + self.C(i, j) * self.grid[i, j+1]
                                             + self.D(i, j)) for j in range(1, self.jmax)]
+
+
+
+from scipy import sparse
+
+class ImplicitScheme(PDESolver):
+    """ Black Scholes PDE solver using the implicit scheme
+    """
+    def __init__(self, pde, imax, jmax):
+        super().__init__(pde, imax, jmax)
+
+    # Functions for calculating coefficients
+    """ Coefficient {*insert coefficient letter}_{i,j} for Implicit scheme
+        : param i : index of x discretisation
+        : param j : index of t discretisation
+        """
+    def A(self, i, j): return 0
+    def B(self, i, j): return 1
+    def C(self, i, j): return 0
+    def D(self, i, j): return - self.dt * self.d(i-1, j)
+    def E(self, i, j): return - (self.dt / self.dx) * ((self.b(i-1, j) / 2) - (self.a(i-1, j) / self.dx))
+    def F(self, i, j): return 1 + self.dt * self.c(i-1, j) - (2 * self.dt * self.a(i-1, j)) / (self.dx ** 2)
+    def G(self, i, j): return (self.dt / self.dx) * ((self.b(i-1, j) / 2) + (self.a(i-1, j) / self.dx))
+
+    def get_W(self, i):
+        """
+        Compute the intermediate vector w_i used to compute the right-hand-side of 
+        the linear system of equations in the implicit scheme.
+        : param i : index of x discretisation
+        return    : a numpy array of [w_1, ....., w_{jmax-1}] 
+        """
+
+        # Step 1: Initialise first row of elements
+        W = [self.D(i,1) + self.A(i, 1) * self.x_low(i) - self.E(i, 1)*self.x_low(i-1)]
+
+        # Step 2: add middle rows (D_{i, x}'s)
+        W += [self.D(i, j) for j in range(2, self.jmax - 1)]
+
+        # Step 3: add final row
+        W += [self.D(i,self.jmax - 1) + self.C(i, self.jmax - 1) * self.x_up(i) 
+              - self.G(i, self.jmax - 1)*self.x_up(self.jmax - 1)]
+
+        return W
+    
+    def compute_vi(self, i):
+        """
+        Compute the v_{i-1} vector solving the inverse problem,
+        Uses the precomputed values of self.grid[i, :] to compute the self.grid[i-1,:]
+        : param i : i-th iteration
+        return    : The v_[i-1] vector, nunmpy array of length self.jmax+1
+        
+        """
+        # initialise A diagonal matrix:
+        A_diag_left  = [self.A(i, j) for j in range(2, self.jmax)]
+        A_diag_cent  = [self.B(i, j) for j in range(1, self.jmax)]
+        A_diag_right = [self.C(i, j) for j in range(1, self.jmax-1)]
+        A = sparse.diags([A_diag_left, A_diag_cent, A_diag_right], [-1, 0, 1])
+
+        # initialise B diagonal matrix:
+        B_diag_left  = [self.E(i, j) for j in range(2, self.jmax)]
+        B_diag_cent  = [self.F(i, j) for j in range(1, self.jmax)]
+        B_diag_right = [self.G(i, j) for j in range(1, self.jmax-1)]
+        B = sparse.diags([B_diag_left, B_diag_cent, B_diag_right], [-1, 0, 1])
+
+        # Computing the righ hand side of the equation (the matricies in the brackets)
+        rhs = A @ self.grid[i, 1:-1 ] + self.get_W(i)
+        return sparse.linalg.splu(B).solve(rhs)
+    def solve_grid(self):
+        """
+        Iteratively solve the PDE for the entire grid with the "compute_vi" function
+        """
+        # Step 1: initialise the last row of the grid using boundary conditions on 't'
+        self.grid[self.imax, :] = [self.t_up(j) for j in range(self.jmax + 1)]
+
+        # Step 2: iteratively compute the next v_i
+        for i in range(self.imax, 0, -1):
+            # Step 2.1: Set elements on row 'i-1' on row edges using boundary conditions
+            self.grid[i-1, 0] = self.x_low(i - 1)
+            self.grid[i-1, self.jmax] = self.x_up(i-1)
+
+            # Step 2.2: Set middle rows of column 'i-1' using "compute_vi" function
+            self.grid[i-1, 1:-1] = self.compute_vi(i)
