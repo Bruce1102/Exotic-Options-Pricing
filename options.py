@@ -33,7 +33,7 @@ class OptionsBlackScholes:
         return grid
 
     def bound_cond_tup(self,  spot):
-        if self.put_call = 'call':
+        if self.put_call == 'call':
             return max(spot - self.strike, 0)
         else:
             return max(self.strike - spot, 0)
