@@ -51,6 +51,7 @@ class Asian(Option):
 
         super().__init__(underlying, strike, rate, tau, call_put)
 
+        self.average_type = average_type
         self.floating_fixed = float_fixed
         self.fixed = fixed #fixed average rate
 
@@ -73,4 +74,21 @@ class Asian(Option):
         else:
             return max(value[1] - value[0], 0)
             
+class LookBack(Option):
+    def __init__(self, underlying: StochasticProcessSimulation, strike:float, rate:float, 
+                 tau:float, call_put:str='call', min_max:str='max'):
 
+        super().__init__(underlying, strike, rate, tau, call_put)
+
+        self.min_max = min_max
+
+    def get_payoff(self, spot):
+        compute_value = max(self.hist_prices)
+
+        if self.floating_fixed == 'floating':
+            value = (spot, average)
+
+        if self.call_put == 'call':
+            return max(value[0] - value[1], 0)
+        else:
+            return max(value[1] - value[0], 0)

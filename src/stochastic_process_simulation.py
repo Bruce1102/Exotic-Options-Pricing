@@ -39,7 +39,6 @@ class StochasticProcessSimulation:
         for i in range(1, self.n_steps):
             self.simulation[i] = self.simulation[i-1] + self.drift_diffusion(self.simulation[i-1])
 
-    @property
     def get_simulation(self) -> np.array:
         """Return the simulated price dynamics."""
         return self.simulation
@@ -88,8 +87,10 @@ class CIRProcess(VasicekProcess):
         """Override the diffusion term for CIR Process."""
         return self.sigma * np.sqrt(price) * np.sqrt(self.dt) * np.random.normal()
 
+
+
 class StochasticVolatility(StochasticProcessSimulation):
-    def __init__(self, initial_price:float, initial_volatility:float, mu:float, sigma:CIRProcess, tau:float, n_steps:int = 1_000):
+    def __init__(self, initial_price:float, initial_volatility:float, mu:float, volatility_process:CIRProcess, tau:float, n_steps:int = 1_000):
         """
         Initialize the Stochastic Volatility model.
 
@@ -103,29 +104,30 @@ class StochasticVolatility(StochasticProcessSimulation):
         """
         super().__init__(initial_price, mu, None, tau, n_steps) # Will use our own sigma process
         self.initial_volatility = initial_volatility
-        self.sigma = sigma
-        self.volatilities = np.zeros(n_steps)
-        self.volatilities[0] = initial_volatility
+        self.volatility_process = volatility_process
 
-    def _volatility_diffusion(self, volatility:float):
-        """Compute v_t for volatility through the CIR Process."""
-        return self.sigma.drift_diffusion(volatility)
+        volatility_process.simulate()
+        self.volatilities = volatility_process.get_simulation()
+
+    def _volatility_diffusion(self, price, volatility):
+        return price * np.sqrt(volatility) * np.sqrt(self.dt) * np.random.normal()
 
     def drift_diffusion(self, price:float, volatility:float) -> float:
         """Compute the combined drift and diffusion for the given price."""
-        return self._drift(price) + price * np.sqrt(self._diffusion(price, volatility))
+        drift = self._drift(price)
+        diffusion = self._volatility_diffusion(price, volatility)
+        return drift + diffusion
 
     def simulate(self):
         """Simulate the price dynamics using the drift-diffusion model."""
         for i in range(1, self.n_steps):
             # Update stock price using the drift-diffusion model
-            self.simulation[i] = self.simulation[i-1] + self.drift_diffusion(self.simulation[i-1], self.volatilities[i-1])
-            # Update volatility using the full dynamics of the CIR process
-            self.volatilities[i] = self._volatility_diffusion(self.volatilities[i-1])
+            self.simulation[i] = self.simulation[i-1] + self.drift_diffusion(self.simulation[i-1], self.volatilities[i])
+
 
 
 class Jump:
-    def __init__(self, lambda_jump: float, mu_jump: float, sigma_jump: float):
+    def __init__(self, lambda_jump: float, mu_jump: float, sigma_jump: float, dt:float):
         """
         Initialize the Kou's Jump Process.
 
@@ -137,49 +139,57 @@ class Jump:
         self.lambda_jump = lambda_jump
         self.mu_jump = mu_jump
         self.sigma_jump = sigma_jump
+        self.dt = dt
 
-    def jump_sizes(self, interval_length: float) -> np.array:
-        """Compute the sizes of the jumps over the given interval."""
-        num_jumps = np.random.poisson(self.lambda_jump * interval_length)
-        return np.random.normal(self.mu_jump, self.sigma_jump, num_jumps)
-
-    def apply_jumps(self, price: float, interval_length: float) -> float:
-        """Apply the jumps to the given price over the interval."""
-        jumps = self.jump_sizes(interval_length)
-        for jump in jumps:
-            price *= np.exp(jump)
-        return price
-
-
-class KouJump(Jump):
-    def __init__(self, lambda_jump: float, p: float, lambda_positive: float, lambda_negative: float):
+    def compute_jump(self, price:float) -> float:
         """
-        Initialize the Kou's Jump Process.
+        Compute dJ_t over a given interval.
 
         Parameters:
-        - lambda_jump    : Intensity of the jump.
-        - p              : Probability of positive jump.
-        - lambda_positive: Parameter for positive exponential distribution.
-        - lambda_negative: Parameter for negative exponential distribution.
+        - interval_length: Length of the time interval.
+
+        Returns:
+        - dJ_t: Total jump over the interval.
         """
-        super().__init__(lambda_jump, None)  # No size_jump for Kou's model in the parent class
-        self.p = p
-        self.lambda_positive = lambda_positive
-        self.lambda_negative = lambda_negative
-
-    def jump_sizes(self, interval_length: float) -> np.array:
-        """Compute the sizes of the jumps over the given interval using Kou's model."""
-        num_jumps = np.random.poisson(self.lambda_jump * interval_length)
-        jump_sizes = np.zeros(num_jumps)
+        # Determine the number of jumps over the interval
+        num_jumps = np.random.poisson(self.lambda_jump * self.dt)
         
-        for i in range(num_jumps):
-            if np.random.uniform() < self.p:
-                jump_sizes[i] = np.random.exponential(scale=1/self.lambda_positive)
-            else:
-                jump_sizes[i] = -np.random.exponential(scale=1/self.lambda_negative)
+        # Determine the sizes of the jumps
+        jump_sizes = np.random.normal(self.mu_jump, self.sigma_jump, num_jumps)
         
-        return jump_sizes
+        # Compute dJ_t
+        dJ_t = np.sum(np.exp(jump_sizes) - 1)
+        
+        return price * dJ_t
 
+# class KouJump(Jump):
+#     def __init__(self, lambda_jump: float, p: float, lambda_positive: float, lambda_negative: float):
+#         """
+#         Initialize the Kou's Jump Process.
+
+#         Parameters:
+#         - lambda_jump    : Intensity of the jump.
+#         - p              : Probability of positive jump.
+#         - lambda_positive: Parameter for positive exponential distribution.
+#         - lambda_negative: Parameter for negative exponential distribution.
+#         """
+#         super().__init__(lambda_jump, None)  # No size_jump for Kou's model in the parent class
+#         self.p = p
+#         self.lambda_positive = lambda_positive
+#         self.lambda_negative = lambda_negative
+
+#     def jump_sizes(self, interval_length: float) -> np.array:
+#         """Compute the sizes of the jumps over the given interval using Kou's model."""
+#         num_jumps = np.random.poisson(self.lambda_jump * interval_length)
+#         jump_sizes = np.zeros(num_jumps)
+        
+#         for i in range(num_jumps):
+#             if np.random.uniform() < self.p:
+#                 jump_sizes[i] = np.random.exponential(scale=1/self.lambda_positive)
+#             else:
+#                 jump_sizes[i] = -np.random.exponential(scale=1/self.lambda_negative)
+        
+#         return jump_sizes
 
 class StochasticJumpProcess:
     def __init__(self, stochastic_process, jump_process: Jump, initial_price: float, n_steps: int = 1_000):
@@ -192,15 +202,21 @@ class StochasticJumpProcess:
         self.simulation = np.zeros(n_steps)
         self.simulation[0] = self.initial_price
 
-    def drift_diffusion_jump(self, price: float) -> float:
-        """Compute the combined drift, diffusion, and jump for the given price."""
-        price_with_drift_diffusion = self.stochastic_process.drift_diffusion(price)
-        return self.jump_process.apply_jumps(price_with_drift_diffusion, self.dt)
+        if isinstance(self.stochastic_process, StochasticVolatility):
+            self.stochastic_process.volatility_process.simulate()
 
     def simulate(self):
         """Simulate the price dynamics with jumps."""
         for i in range(1, self.n_steps):
-            self.simulation[i] = self.drift_diffusion_jump(self.simulation[i-1])
+            if isinstance(self.stochastic_process, StochasticVolatility):
+                # If the process is StochasticVolatility, we need to pass the volatility as well
+                drift_diffusion = self.stochastic_process.drift_diffusion(self.simulation[i-1], self.stochastic_process.volatilities[i-1])
+            else:
+                drift_diffusion = self.stochastic_process.drift_diffusion(self.simulation[i-1])
+
+            jump = self.jump_process.compute_jump(self.simulation[i-1])
+
+            self.simulation[i] = self.simulation[i-1] + drift_diffusion + jump
 
     def get_simulation(self) -> np.array:
         """Return the simulated price dynamics."""
