@@ -2,43 +2,39 @@ import numpy as np
 import math
 
 class PDESolver:
-    """ Abstract class to solve Black-Scholes PDE """
-
-    def __init__(self, pde, imax, jmax):
+    def __init__(self, pde: OptionsBlackScholes, grid_max: np.array, variables: np.array):
         """ Constructor
         Parameters:
             pde : PDE to be solved
-            imax : last value of the first variable's discretisation
-            jmax : last value of the second variable's discretisation
+            grid_max : Max values of the each variable's discretisation
         """
         # Initialising self variables
         self.pde  = pde
-        self.imax = imax
-        self.jmax = jmax
-        
+        self.n_axis = len(grid_max)
+        self.grid_max = grid_max
+
         # Initialising dt and dx 
-        self.dt = pde.t_up / imax
-        self.dx = (pde.x_up - pde.x_low) / jmax
+        self.variables = variables
+        # self.dt = pde.tau / imax
+        # self.dx = (pde.x_up - pde.x_low) / jmax
 
         # Initialising grid
-        self.grid = np.empty((imax + 1, jmax + 1), dtype = float)
+        self.grid = np.empty(self.grid_max + 1, dtype = float)
 
-    def t(self, i):
+    def descretised_variable(self, value, variable):
         """ Return the descretised value of t at index i """
-        return self.dt * i
-    
-    def x(self, j):
-        """ Return the descretised value of x at index j """
-        return self.dx * j
+        return self.variables[variable] * value
 
-    # Helper umbrella function to get coefficients
-    def get_coefficients(self, i, j): return self.pde.get_coefficients(self.t(i), self.x(j))
+    # # Helper umbrella function to get coefficients
+    # def a(self, i, j): return self.pde.a(self.t(i), self.x(j))
+    # def b(self, i, j): return self.pde.b(self.t(i), self.x(j))
+    # def c(self, i, j): return self.pde.c(self.t(i), self.x(j))
+    # def d(self, i, j): return self.pde.d(self.t(i), self.x(j))
     
-    # Helper umbrella function to get boundary conditions
-    def t_up(self, j): return self.pde.bound_cond_tup(self.x(j))
-    def x_low(self, i): return self.pde.bound_cond_x_low(self.t(i))
-    def x_up(self, i): return self.pde.bound_cond_x_up(self.t(i))
-
+    # # Helper umbrella function to get boundary conditions
+    # def t_up(self, j): return self.pde.boundary_condition_tau(self.x(j))
+    # def x_low(self, i): return self.pde.boundary_condition_x_low(self.t(i))
+    # def x_up(self, i): return self.pde.boundary_condition_x_up(self.t(i))
 
     def interpolate(self, t, x):
         """ Get interpolated solution value at given time and space
@@ -47,12 +43,31 @@ class PDESolver:
             x : point in space
         Return
             interpolated solution value
+        
+        NOTE:
+        To interpolate and find value at point p (t, x), we must first find the discrete points
+        i and j. Afterwards calculate the vertical and horizontal distance between the points;
+               vertical distance = (t - i*dt)
+               horizontal distance = (x - j*dx)
+        Compute weighted average afterwards.
+
+
+        (i+1, j) --------------- (i+1, j+1)
+               |            |    |
+               | ---------- p -- |
+               |            |    |
+               |            |    |
+               |            |    |
+               |            |    |
+           (i,j) --------------- (i, j+1)
         """
         # Step 1: calculating closest discrete point (i, j), using floor division "//"
         i = int(t // self.dt) 
         j = int((x - self.pde.x_low) // self.dx)
 
         # Step 2: calculating vertical and horizontal distance/weight from each node
+        #         (Since we are calculating weighting rather than physical distance
+        #          we will divide it by dt or dx)
         i_1 = (t - self.dt * i) / self.dt
         i_0 = 1 - i_1
         j_1 = (x + self.pde.x_low - self.dx * j) / self.dx
@@ -65,32 +80,30 @@ class PDESolver:
                 + i_1 * j_1 * self.grid[i+1, j+1])
 
 
+
 class ExplicitScheme(PDESolver):
-    """ Black Scholes PDE solver using the explicit scheme
-    """
+    """ PDE solver using the explicit scheme"""
     def __init__(self, pde, imax, jmax):
         super().__init__(pde, imax, jmax)
 
-
     # Functions for calculating coefficients
-    """ Coefficient {*insert coefficient letter}_{i,j} for explicit scheme
-    Parameters:
-        i : index of x discretisation
-        j : index of t discretisation
-    Return:
-        Desired coefficient
-    """
+    """ Coefficient A_{i,j} for explicit scheme """
     def A(self, i, j):
-        return (self.dt / self.dx) * ((self.get_coefficients(i, j)['b'] / 2) - (self.get_coefficients(i, j)['a'] / self.dx))
+        """ Coefficient A_{i,j} for explicit scheme """
+        return (self.dt / self.dx) * ((self.b(i, j) / 2) - (self.a(i, j) / self.dx))
     
     def B(self, i, j):
-        return 1 - self.dt * self.get_coefficients(i, j)['c'] + 2 * (self.dt * self.get_coefficients(i, j)['a'] / (self.dx ** 2))
+        """ Coefficient B_{i,j} for explicit scheme """
+        return 1 - self.dt * self.c(i, j) + 2 * (self.dt * self.a(i, j) / (self.dx ** 2))
     
     def C(self, i, j):
-        return - (self.dt / self.dx) * ((self.get_coefficients(i, j)['b'] / 2) + (self.get_coefficients(i, j)['a'] / self.dx)) 
+        """ Coefficient C_{i,j} for explicit scheme """
+        return - (self.dt / self.dx) * ((self.b(i, j) / 2) + (self.a(i, j) / self.dx)) 
     
     def D(self, i, j):
-        return - self.dt * self.get_coefficients(i, j)['d']
+        """ Coefficient D_{i,j} for explicit scheme """
+        return - self.dt * self.d(i, j)
+    
     
 
     def solve_grid(self):
