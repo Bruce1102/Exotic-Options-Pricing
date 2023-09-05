@@ -1,1 +1,73 @@
-# Exotic-Options-Pricing
+<h1>Exotic Options Pricing Project</h1>
+This project focuses on the pricing of exotic options using both Monte Carlo and Finite Difference Methods (FDM). The exotic options covered in this project include Asian, American, Lookback, and Barrier options.
+
+
+<h2>Exotic Options:</h2>
+Exotic options are financial derivatives that offer more complexity than standard options in terms of their payoff conditions and structures. Here's a brief overview of the exotic options covered in this project:
+
+**1. Asian Options:** These options have their payoff determined by the average price of the underlying asset over a certain period, rather than just the final price. This averaging can either be arithmetic or geometric.
+
+**2. American Options:** Unlike European options that can only be exercised at expiration, American options can be exercised at any time before or at its expiration. This flexibility often leads to them having a higher premium than European options.
+
+**3. Lookback Options:** These options allow the holder to "look back" over time to determine the payoff. The payoff of a lookback option depends on the optimal value the underlying asset reached during the life of the option.
+
+**4. Barrier Options:** These options become activated or deactivated when the price of the underlying asset crosses a certain barrier level. Depending on the specifics, they can be classified as knock-in or knock-out.
+
+
+
+<h2>Monte Carlo Method:</h2>
+Stochastic Process Modeling: The asset price is modeled using various stochastic processes. The project incorporates an object-oriented approach to represent these processes. The processes used include:
+
+**1. Geometric Brownian Motion (GBM):**
+
+$$d S_t = \mu S_t dt + \sigma S_t dW_t$$
+- GBM is a continuous-time stochastic process where the logarithm of the randomly varying quantity follows a Brownian motion. It's widely used in finance for modeling stock prices.
+
+
+**2. Vasicek Model:**
+$$d r_t = k (\theta - r_t) dt + \sigma dW_t$$
+- The Vasicek model describes the evolution of interest rates. It's a mean-reverting model where rates tend to drift towards a long-term mean.
+
+**3. Cox-Ingersoll-Ross (CIR) Model**
+$$d r_t = k (\theta - r_t) dt + \sigma \sqrt{r_t } dW_t$$
+- CIR is an extension of the Vasicek model, ensuring that interest rates remain non-negative.
+
+**4. Heston Model:**
+$$d S_t = \mu S_t dt + \sqrt({v_t} S_t d W_{t1}$$
+$$d v_t = k (\theta - v_t) dt + \xi \sqrt{v_t } dW_{t2}$$
+- The Heston model describes the evolution of stock prices and their volatility. It's known for capturing volatility smiles and skews in the market.
+
+**5. Merton's Jump Diffusion:**
+Jump processes are incorporated into stochastic models to account for sudden and significant changes in the price of the underlying asset. These jumps can be due to various unexpected events, such as political upheavals, major economic announcements, or other macro events that can cause abrupt market movements. By introducing a jump component, the model becomes better equipped to capture the real-world discontinuities in asset prices. Below is an example of a Merton's jump process added into a geometric brownian motion.
+
+$$d S_t = \mu S_t dt + \sigma S_t dW_t + S_t J dq_t$$
+
+$$dq_t = 
+\begin{cases} 
+1 & \text{with probability } \lambda dt \\
+0 & \text{with probability } 1 - \lambda dt 
+\end{cases}$$
+
+Where:
+- $J$: Jump size, between 0 to 1
+- $dq_t$: Compound Poisson process
+
+
+Option Classes: For each type of exotic option, a dedicated class is defined. These classes provide functionalities to simulate the option's behavior and compute its payoff.
+
+Monte Carlo Simulation: A separate class is designed for the Monte Carlo method. This class:
+
+Simulates the option price n times.
+Computes the payoff at the end of each simulation.
+Calculates the fair discounted value to determine the option price.
+Finite Difference Method (FDM):
+PDE for Exotic Options: An object-oriented approach is used to define the Partial Differential Equations (PDEs) specific to each exotic option. These PDEs capture the mathematical essence of the option's behavior.
+
+PDE Solver: The project incorporates a PDE Solver designed to solve the defined PDEs for the exotic options. This solver is built upon:
+
+An Explicit Scheme: An extension class for the explicit scheme is used within the PDE Solver. This scheme provides a step-by-step method to approximate the solution of the PDEs.
+Boundary Conditions: For each exotic option, specific boundary conditions are set based on the option's characteristics. These conditions ensure the accuracy and stability of the FDM solution.
+
+Grid Generation: The FDM relies on a grid system to approximate the option's price over time and asset price. The PDE Solver generates this grid and iteratively updates its values based on the explicit scheme and boundary conditions.
+
+Option Pricing: Once the grid is fully populated, the option's price can be extracted from the grid values. Depending on the exotic option type and its characteristics, the price might be taken from a specific grid point or might be an aggregation of multiple grid values.
