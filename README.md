@@ -41,6 +41,7 @@ $$d v_t = k (\theta - v_t) dt + \xi \sqrt{v_t } dW_{t2}$$
 - The Heston model describes the evolution of stock prices and their volatility. It's known for capturing volatility smiles and skews in the market.
 
 **5. Merton's Jump Diffusion:**
+
 Jump processes are incorporated into stochastic models to account for sudden and significant changes in the price of the underlying asset. These jumps can be due to various unexpected events, such as political upheavals, major economic announcements, or other macro events that can cause abrupt market movements. By introducing a jump component, the model becomes better equipped to capture the real-world discontinuities in asset prices. Below is an example of a Merton's jump process added into a geometric brownian motion.
 
 $$d S_t = \mu S_t dt + \sigma S_t dW_t + S_t J dq_t$$
