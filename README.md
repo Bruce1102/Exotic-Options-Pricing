@@ -16,7 +16,10 @@ Exotic options are financial derivatives that offer more complexity than standar
 
 
 <h2>Monte Carlo Method:</h2>
-Stochastic Process Modeling: The asset price is modeled using various stochastic processes. The project incorporates an object-oriented approach to represent these processes. The processes used include:
+
+<h3>Stochastic Process Modeling:</h3>
+
+The asset price is modeled using various stochastic processes. The project incorporates an object-oriented approach to represent these processes. The processes used include:
 
 **1. Geometric Brownian Motion (GBM):**
 
@@ -53,14 +56,18 @@ Where:
 - $dq_t$: Compound Poisson process
 
 
-Option Classes: For each type of exotic option, a dedicated class is defined. These classes provide functionalities to simulate the option's behavior and compute its payoff.
+<h3>Option Classes:</h3> 
+For each type of exotic option, a dedicated class is defined. These classes provide functionalities to simulate the option's behavior and compute its payoff.
 
-Monte Carlo Simulation: A separate class is designed for the Monte Carlo method. This class:
+<h3>Monte Carlo Simulation:</h3>
+A separate class is designed for the Monte Carlo method. This class:
 
 Simulates the option price n times.
 Computes the payoff at the end of each simulation.
 Calculates the fair discounted value to determine the option price.
-Finite Difference Method (FDM):
+
+
+<h2>Finite Difference Method (FDM):</h2>
 PDE for Exotic Options: An object-oriented approach is used to define the Partial Differential Equations (PDEs) specific to each exotic option. These PDEs capture the mathematical essence of the option's behavior.
 
 PDE Solver: The project incorporates a PDE Solver designed to solve the defined PDEs for the exotic options. This solver is built upon:
