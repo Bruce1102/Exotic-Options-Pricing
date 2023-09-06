@@ -3,7 +3,7 @@ import numpy as np
 
 class Option:
     """Base class for standard vanila european options."""
-    def __init__(self, underlying: StochasticProcessSimulation, strike:float, rate:float, tau:float, call_put:str = 'call'):
+    def __init__(self, underlying: StochasticProcessSimulation, strike:float, rate:float, tau:float, call_put: str='call'):
         """
         Initialize the Option.
 
@@ -31,6 +31,7 @@ class Option:
                   'tau' : self.tau,
                   'strike': self.strike,
                   'n': self.underlying.n_steps}
+
         return params
 
     def simulate(self):
@@ -40,7 +41,7 @@ class Option:
     def get_simulated_prices(self):
         return self.hist_prices
 
-    def get_payoff(self, spot):
+    def get_payoff(self, spot: float) -> float:
         if self.call_put == 'call':
             return max(spot - self.strike, 0)
         else:
@@ -63,7 +64,6 @@ class Asian(Option):
 
         self.average_type = average_type
         self.floating_fixed = float_fixed
-        self.fixed = fixed #fixed average rate
 
 
     def _compute_average(self):
@@ -72,7 +72,7 @@ class Asian(Option):
         else: 
             return np.prod(self.hist_prices) / len(self.hist_prices)
 
-    def get_payoff(self, spot):
+    def get_payoff(self, spot: float) -> float:
         average = self._compute_average()
         value = (average, self.fixed)
 
@@ -96,7 +96,7 @@ class LookBack(Option):
 
         self.min_max = min_max
 
-    def get_payoff(self, spot):
+    def get_payoff(self, spot: float) -> float:
         compute_value = max(self.hist_prices)
 
         if self.floating_fixed == 'floating':
@@ -123,16 +123,48 @@ class Barrier(Option):
         self.knock = knock
         self.call = call
 
-    
+        self.knocked_in = False
+        self.knocked_out = False
+
+    def _check_knocked(self):
+        simulated_prices = underlying.get_simulation()
+        for price in simulated_prices:
+            if (self.knock == 'up-out' and price >= self.barrier) or (self.knock == 'down-out' and price <= self.barrier):
+                self.knocked_out = True
+                break
+            if (self.knock == 'up-in' and price >= self.barrier) or (self.knock == 'down-in' and price <= self.barrier):
+                self.knocked_out = True
+                break
 
     def get_payoff(self, spot: float) -> float:
         """Calculate the payoff for a barrier option."""
-        if self.knock == 'up-out' and any(price > self.barrier for price in self.hist_prices):
+        # Check for knocked in or out
+        self._check_knocked(self)
+        
+        # if it has been knocked in or not knocked out
+        if self.knocked_in or (self.knock[-3:] == 'out' and not self.knocked_out):
+            return max(spot - self.strike, 0) if self.put_call == 'call' else max(self.strike - spot, 0)
+        else:
             return self.rebate
-        if self.knock == 'down-out' and any(price < self.barrier for price in self.hist_prices): 
-            return self.rebate
-        if self.knock == 'up-in' and not any(price > self.barrier for price in self.hist_prices):
-            return 0
-        if self.knock == 'down-in' and not any(price < self.barrier for price in self.hist_prices):
-            return 0
-        return max(spot - self.strike, 0) if self.put_call == 'call' else max(self.strike - spot, 0)
+
+
+class American(Option):
+    """Base class for standard vanila european options."""
+    def __init__(self, underlying: StochasticProcessSimulation, strike:float, rate:float, tau:float, dividend: float, call_put:str = 'call'):
+        super().__init__(underlying, strike, rate, tau, dividend, call_put)
+    
+    def early_exercise_value(self, spot:float, time: float) -> float:
+        """ Calculate the value of the option if it's exercised early."""
+        discounted_payoff = np.exp(-self.rate * (self.tau - time)) * self.get_payoff(spot)
+        return discounted_payoff
+
+    def get_optimal_payoff(self, spot: float, time: float) -> float:
+        """Determine the optimal payoff between exercising now or continuing to hold the option."""
+        # Calculate the value if the option is exercised now
+        early_exercise_val = self.early_exercise_value(spot, time)
+
+        # Calculate the expected value if the option is held (this is a placeholder and should be replaced with a proper model)
+        continuation_val = self.get_payoff(spot)  # This is a simplification; in practice, you'd use a model like binomial tree or finite difference method.
+
+        # Return the maximum of the two values
+        return max(early_exercise_val, continuation_val)

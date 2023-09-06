@@ -51,7 +51,7 @@ class OptionsBlackScholes:
         """Compute boundary conditions for x_up"""
         return math.exp(-self.rate * (self.tau - t)) * self.strike if  self.call_put == 'call' else 0.0
 
-    def adjust_grid(self, grid_row, dx, tau_remaining):
+    def adjust_point(self, grid_row, dx, tau_remaining):
         return grid
 
 
@@ -76,63 +76,34 @@ class AmericanOptionsBlackScholes(OptionsBlackScholes):
 
 
 
-class BarrierOptionsBlackScholes(OptionsBlackScholes):
+class KnockOutOptionsBlackScholes(OptionsBlackScholes):
     def __init__(self, strike: float, tau: float, rate: float, sigma, dividend: float, barrier:float, knock:str, bounds: (int, int), call_put: str = 'call', rebate: float = 0):
         super().__init__(strike, tau, rate, sigma, dividend, bounds, call_put)
         self.barrier = barrier
         self.knock = knock
         self.rebate = rebate
-        self.knocked_in = False
-        self.knocked_out = False
+        self.adjust = True
 
-    def _knocked_out(self, spot):
-        """Compute upper boundary conditions for time"""
-        if (self.knock == 'up-out' and spot >= self.barrier) or (self.knock == 'down-out' and spot <= self.barrier):
-            return True
-        else: 
-            return False
-    
+    def _check_knocked(self, spot: float) -> float:
+        """Check if given the spot price, the option is knocked in or out"""
+        if (self.knock == 'up' and spot >= self.barrier) or (self.knock == 'down' and spot <= self.barrier):
+            return True    
 
     def boundary_condition_tau(self, spot):
-        if self.knocked_out or not self.knocked_in:
-            return self.rebate
-        else:
-            return max(spot - self.strike, 0) if self.call_put == 'call' else max(self.strike - spot, 0)
+        """Return rebate if it has been knocked out, else return regular boundary tau conditions"""
+        return self.rebate if self._check_knocked(spot) else super().boundary_condition_tau(spot)
 
     def boundary_condition_x_low(self, tau):
-        """Compute boundary conditions for x_low"""
-        if self.knock == 'down-out':
-            return self.rebate
-        elif self.knock == 'down-in' and self.x_low < self.barrier:
-            return 0.0 if self.call_put == 'call' else math.exp(-self.rate * (self.tau - t)) * self.strike
-        else:
-            return super().boundary_condition_x_low(tau)
+        """Return rebate if it has been knocked out, else return regular boundary x_low conditions"""
+        return self.rebate if self.knock == 'down' else super().boundary_condition_x_low(tau)
 
     def boundary_condition_x_up(self, tau):
-        """Compute boundary conditions for x_up"""
-        if self.knock == 'up-out':
-            return self.rebate
-        elif self.knock == 'up-in' and self.x_up > self.barrier:
-            return self.x_up - math.exp(-self.rate * (self.tau - t)) * self.strike if self.call_put == 'call' else 0.0
-        else:
-            return super().boundary_condition_x_up(t)
+        """Return rebate if it has been knocked out, else return regular boundary x_up conditions"""
+        return self.rebate if self.knock == 'up' else super().boundary_condition_x_up(tau)
 
     def adjust_point(self, option_value: float, x: float) -> float:
-        return option_value
-        # """Adjust the option value based on the barrier condition."""
-        # # Knocked out conditions
-        # if (self.knock == 'up-out' and x >= self.barrier) or (self.knock == 'down-out' and x <= self.barrier):
-        #     self.knocked_out = True
-        #     return self.rebate
-
-        # # Knocked-in conditions
-        # if (self.knock == 'up-in' and x >= self.barrier) or (self.knock == 'down-in' and x <= self.barrier):
-        #     self.knocked_in = True
-        
-        # # If option is up-in / down-in hasn't been knocked in yet
-        # if self.knock in ['up-in', 'down-in'] and not self.knocked_in:
-        #     return self.rebate 
-
-        # return option_value
+        """Return rebate if knocked out, else return original value"""
+        return self.rebate if self._check_knocked(x) else option_value
+            
 
         

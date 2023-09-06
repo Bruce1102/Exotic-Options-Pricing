@@ -2,7 +2,7 @@ import numpy as np
 import math
 
 class StochasticProcessSimulation:
-    def __init__(self, initial_price:float, mu:float, sigma:float, tau:float, n_steps:int = 1_000):
+    def __init__(self, initial_price: float, mu: float, sigma: float, tau: float, dividend: float=0, n_steps:int = 1_000):
         """ Initialize the StochasticProcessSimulation.
 
         Parameters:
@@ -14,7 +14,8 @@ class StochasticProcessSimulation:
         - n_steps       : number of time step to simulate.
         """
         self.initial_price = initial_price
-        self.mu = mu
+        self.discrete_dividend = dividend * tau / n_steps
+        self.mu = mu - self.discrete_dividend
         self.sigma = sigma
         self.tau = tau
         self.dt = tau / n_steps

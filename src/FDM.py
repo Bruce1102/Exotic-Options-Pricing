@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import solve_banded
 import math
 from src.optionsFDM import *
 
@@ -117,28 +118,7 @@ class ExplicitScheme(PDESolver):
         """Coefficient 'D' for explicit scheme."""
         return - self.dt * self.pde.coeff_d(i, j)
     
-    # def solve_grid(self):
-    #     # Compute all grid points for the last row
-    #     self.grid[self.imax, :] = [self.boundary_condition_tau(j) for j in range(self.jmax + 1)]
 
-    #     # Iterate for all i from self.imax to 0 inclusive and update grid points:
-    #     for i in range(self.imax, 0, -1):
-
-    #         # (i, 0) boundary conditions for x_low
-    #         self.grid[i - 1, 0] = self.boundary_condition_x_low(i - 1)
-    #         # (i, -1) boundary conditions for x_up
-    #         self.grid[i - 1, -1] = self.boundary_condition_x_up(i - 1)
-
-    #         # v_(i-1, j) formula
-    #         self.grid[i-1, 1:self.jmax] = [(self._A(i, j) * self.grid[i, j-1] 
-    #                                         + self._B(i, j) * self.grid[i, j]
-    #                                         + self._C(i, j) * self.grid[i, j+1]
-    #                                         + self._D(i, j)) for j in range(1, self.jmax)]   
-
-    #         # Adjust for early exercise if the option is American
-    #         if isinstance(self.pde, American):
-    #             tau_remaining = self.pde.tau - self.t(i-1)
-    #             self.grid[i-1] = self.pde.adjust_grid(self.grid[i-1], self.dx, tau_remaining)
     def solve_grid(self):
         # Compute all grid points for the last row
         self.grid[self.imax, :] = [self.boundary_condition_tau(j) for j in range(self.jmax + 1)]
@@ -162,25 +142,6 @@ class ExplicitScheme(PDESolver):
                 if self.pde.adjust:
                     x = self.x(j)
                     self.grid[i-1, j] = self.pde.adjust_point(self.grid[i-1, j], x)
-    # Before adjusting grid
-    # def solve_grid(self):
-    #     # Compute all grid points for the last row
-    #     self.grid[self.imax, :] = [self.boundary_condition_tau(j) for j in range(self.jmax + 1)]
-
-    #     # Iterate for all i from self.imax to 0 inclusive and update grid points:
-    #     for i in range(self.imax, 0, -1):
-
-    #         # (i, 0) boundary conditions for x_low
-    #         self.grid[i - 1, 0] = self.boundary_condition_x_low(i - 1)
-    #         # (i, -1) boundary conditions for x_up
-    #         self.grid[i - 1, -1] = self.boundary_condition_x_up(i - 1)
-
-    #         # v_(i-1, j) formula
-    #         self.grid[i-1, 1:self.jmax] = [(self._A(i, j) * self.grid[i, j-1] 
-    #                                         + self._B(i, j) * self.grid[i, j]
-    #                                         + self._C(i, j) * self.grid[i, j+1]
-    #                                         + self._D(i, j)) for j in range(1, self.jmax)]   
-
 
 
 from scipy import sparse
@@ -199,10 +160,10 @@ class ImplicitScheme(PDESolver):
     def A(self, i, j): return 0
     def B(self, i, j): return 1
     def C(self, i, j): return 0
-    def D(self, i, j): return - self.dt * self.d(i-1, j)
-    def E(self, i, j): return - (self.dt / self.dx) * ((self.b(i-1, j) / 2) - (self.a(i-1, j) / self.dx))
-    def F(self, i, j): return 1 + self.dt * self.c(i-1, j) - (2 * self.dt * self.a(i-1, j)) / (self.dx ** 2)
-    def G(self, i, j): return (self.dt / self.dx) * ((self.b(i-1, j) / 2) + (self.a(i-1, j) / self.dx))
+    def D(self, i, j): return - self.dt * self.coeff_d(i-1, j)
+    def E(self, i, j): return - (self.dt / self.dx) * ((self.coeff_b(i-1, j) / 2) - (self.coeff_a(i-1, j) / self.dx))
+    def F(self, i, j): return 1 + self.dt * self.coeff_c(i-1, j) - (2 * self.dt * self.coeff_a(i-1, j)) / (self.dx ** 2)
+    def G(self, i, j): return (self.dt / self.dx) * ((self.coeff_b(i-1, j) / 2) + (self.coeff_a(i-1, j) / self.dx))
 
     def get_W(self, i):
         """
@@ -213,14 +174,14 @@ class ImplicitScheme(PDESolver):
         """
 
         # Step 1: Initialise first row of elements
-        W = [self.D(i,1) + self.A(i, 1) * self.x_low(i) - self.E(i, 1)*self.x_low(i-1)]
+        W = [self.D(i,1) + self.A(i, 1) * self.boundary_condition_x_low(i) - self.E(i, 1)*self.boundary_condition_x_low(i-1)]
 
         # Step 2: add middle rows (D_{i, x}'s)
         W += [self.D(i, j) for j in range(2, self.jmax - 1)]
 
         # Step 3: add final row
-        W += [self.D(i,self.jmax - 1) + self.C(i, self.jmax - 1) * self.x_up(i) 
-              - self.G(i, self.jmax - 1)*self.x_up(self.jmax - 1)]
+        W += [self.D(i,self.jmax - 1) + self.C(i, self.jmax - 1) * self.boundary_condition_x_up(i) 
+              - self.G(i, self.jmax - 1)*self.boundary_condition_x_up(self.jmax - 1)]
 
         return W
     
@@ -252,13 +213,47 @@ class ImplicitScheme(PDESolver):
         Iteratively solve the PDE for the entire grid with the "compute_vi" function
         """
         # Step 1: initialise the last row of the grid using boundary conditions on 't'
-        self.grid[self.imax, :] = [self.tau(j) for j in range(self.jmax + 1)]
+        self.grid[self.imax, :] = [self.boundary_condition_tau(j) for j in range(self.jmax + 1)]
 
         # Step 2: iteratively compute the next v_i
         for i in range(self.imax, 0, -1):
             # Step 2.1: Set elements on row 'i-1' on row edges using boundary conditions
-            self.grid[i-1, 0] = self.x_low(i - 1)
-            self.grid[i-1, self.jmax] = self.x_up(i-1)
+            self.grid[i-1, 0] = self.boundary_condition_x_low(i - 1)
+            self.grid[i-1, self.jmax] = self.boundary_condition_x_up(i-1)
 
             # Step 2.2: Set middle rows of column 'i-1' using "compute_vi" function
             self.grid[i-1, 1:-1] = self.compute_vi(i)
+
+            if self.pde.adjust:
+                for j in range(1, self.jmax):
+                    x = self.x(j)
+                    self.grid[i-1, j] = self.pde.adjust_point(self.grid[i-1, j], x)
+
+class CrankNicolsonScheme(ImplicitScheme):
+    """ Black Scholes PDE solver using the Crank Nicolson scheme"""
+    def __init__(self, pde, imax, jmax):
+        super().__init__(pde, imax, jmax)
+
+    def A(self, i, j): 
+        """ Coefficient A for Crank Nicolson Scheme"""
+        explicit_a = (self.dt / self.dx) * ((self.pde.coeff_b(i, j) / 2) - (self.pde.coeff_a(i, j) / self.dx))
+        implicit_a = 0
+        return 0.5 * (explicit_a + implicit_a)
+    def B(self, i, j):
+        """ Coefficient B for Crank Nicolson Scheme"""
+        explicit_b = 1 - self.dt * self.pde.coeff_c(i, j) + 2 * (self.dt * self.pde.coeff_a(i, j) / (self.dx ** 2))
+        implicit_b = 1
+        return 0.5 * (explicit_b + implicit_b)
+
+    def C(self, i, j): 
+        """ Coefficient C for Crank Nicolson Scheme"""
+        explicit_c = - (self.dt / self.dx) * ((self.pde.coeff_b(i, j) / 2) + (self.pde.coeff_a(i, j) / self.dx)) 
+        implicit_c = 0
+        return 0.5 * (explicit_c + implicit_c)
+
+    def D(self, i, j):
+        """ Coefficient D for Crank Nicolson Scheme"""
+        explicit_d = - self.dt * self.pde.coeff_d(i, j)
+        implicit_d = - self.dt * self.coeff_d(i-1, j)
+        return 0.5 * (explicit_d + implicit_d)
+
