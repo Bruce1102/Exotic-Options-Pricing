@@ -58,15 +58,26 @@ Where:
 
 
 <h3>Option Classes:</h3> 
-For each type of exotic option, a dedicated class is defined. These classes provide functionalities to simulate the option's behavior and compute its payoff.
+For each type of exotic option, a dedicated class is defined. These classes provide functionalities to simulate the asset's behavior and compute its payoff.
+
 
 <h3>Monte Carlo Simulation:</h3>
-A separate class is designed for the Monte Carlo method. This class:
 
-Simulates the option price n times.
-Computes the payoff at the end of each simulation.
-Calculates the fair discounted value to determine the option price.
+The Monte Carlo method is a powerful computational technique used in a wide range of fields, including finance, physics, engineering, and more. It provides a versatile approach to solving problems that involve randomness, uncertainty, or complex systems.
 
+The Monte Carlo simulation will be ran by following these steps:
+
+**1. Stochastic Process Modeling:** The first step is to model the stochastic behavior of the underlying asset's price. This will be done with the models described previously
+
+**2. Random Sampling:** Monte Carlo simulations generate a large number of random price paths for the underlying asset based on the chosen stochastic process. These price paths simulate the potential future trajectories of the asset's price.
+
+**3. Option Payoff Calculation:** For each generated price path, the payoff of the exotic option is computed. This step involves applying the specific conditions and terms of the exotic option to determine its value at the end of each simulation.
+
+**4. Statistical Analysis:** After running a significant number of simulations, statistical analysis is performed on the calculated payoffs. This analysis provides insights into the distribution of possible option values, including measures like the mean (expected value) and standard deviation (volatility).
+
+**5. Discounting:** To obtain the present value of the option, the calculated payoffs are discounted back to the present time using the risk-free rate. This step considers the time value of money.
+
+**6. Option Price Estimation:** The final step involves aggregating the present values of the option payoffs to estimate the option's fair market price. This Monte Carlo estimate reflects the expected value of the exotic option under the assumed stochastic process.
 
 <h2>Finite Difference Method (FDM):</h2>
 PDE for Exotic Options: An object-oriented approach is used to define the Partial Differential Equations (PDEs) specific to each exotic option. These PDEs capture the mathematical essence of the option's behavior.
