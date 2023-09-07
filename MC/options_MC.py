@@ -101,7 +101,7 @@ class LookbackOption(Option):
         return max(spot - min_max, 0) if self.call_put == 'call' else max(min_max - spot, 0)
 
 
-class Barrier(Option):
+class BarrierOption(Option):
     """Barrier option class."""
     def __init__(self, underlying: StochasticProcessSimulation, strike:float, rate:float, 
                  tau:float, barrier:float, rebate:float = 0, knock = 'up-out', call_put = "call"):
@@ -114,31 +114,31 @@ class Barrier(Option):
         self.barrier = barrier
         self.rebate = rebate
         self.knock = knock
-        self.call = call
 
         self.knocked_in = False
         self.knocked_out = False
 
     def _check_knocked(self):
-        simulated_prices = underlying.get_simulation()
+        simulated_prices = self.underlying.get_simulation()
         for price in simulated_prices:
             if (self.knock == 'up-out' and price >= self.barrier) or (self.knock == 'down-out' and price <= self.barrier):
-                self.knocked_out = True
-                break
+                return True
             if (self.knock == 'up-in' and price >= self.barrier) or (self.knock == 'down-in' and price <= self.barrier):
-                self.knocked_out = True
-                break
+                return True
+
+        return False
 
     def get_payoff(self, spot: float) -> float:
         """Calculate the payoff for a barrier option."""
         # Check for knocked in or out
-        self._check_knocked(self)
-        
-        # if it has been knocked in or not knocked out
-        if self.knocked_in or (self.knock[-3:] == 'out' and not self.knocked_out):
-            return max(spot - self.strike, 0) if self.put_call == 'call' else max(self.strike - spot, 0)
-        else:
+        knocked = self._check_knocked()
+        if self.knock[-3:] == 'out' and knocked:
             return self.rebate
+        elif self.knock[-2:] == 'in' and knocked:
+            return self.rebate
+        else:
+            return super().get_payoff(spot)
+
 
 
 class American(Option):
