@@ -72,7 +72,7 @@ $$B_{i, j} = 1 - dt c_{i,j} + \frac{2 dt a_{i, j}}{dx^2}$$
 $$c(t, x) = - \frac{dt}{dx} (\frac{b_{i,j}}{2} - \frac{a_{i,j}}{dx})$$
 $$c(t, x) = - dt d_{i, j} $$
 
-Where $V_{i,j}$ represents the option price at ith time level and jth asset price level.$
+Where $V_{i,j}$ represents the option price at $i^{th}$ time level and $j^{th}$ asset price level.
 
 **2. Implicit Scheme:** Unlike the explicit scheme, this method uses future values in its calculations, making it unconditionally stable. However, it often requires solving a system of linear equations, which can be computationally intensive.
 
