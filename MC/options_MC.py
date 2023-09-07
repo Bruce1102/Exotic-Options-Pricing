@@ -1,4 +1,4 @@
-from src.stochastic_process_simulation import StochasticProcessSimulation
+from MC.stochastic_process_simulation import *
 import numpy as np
 
 class Option:
@@ -48,7 +48,7 @@ class Option:
             return max(self.strike - spot, 0)
 
 
-class Asian(Option):
+class AsianOption(Option):
     """Asian options class."""
     def __init__(self, underlying: StochasticProcessSimulation, strike:float, rate:float, 
                  tau:float, call_put:str='call', average_type:str='arithmetic', 
@@ -64,6 +64,7 @@ class Asian(Option):
 
         self.average_type = average_type
         self.floating_fixed = float_fixed
+        self.fixed = fixed
 
 
     def _compute_average(self):
@@ -84,28 +85,20 @@ class Asian(Option):
         else:
             return max(value[1] - value[0], 0)
             
-class LookBack(Option):
+class LookbackOption(Option):
     """LookBack option class."""
     def __init__(self, underlying: StochasticProcessSimulation, strike:float, rate:float, 
-                 tau:float, call_put:str='call', min_max:str='max'):
-        
-        if min_max not in ['max', 'min']:
-            raise ValueError("Invalid min/max type. Choose from 'min', 'max'.")
+                 tau:float, call_put:str='call'):
 
-        super().__init__(underlying, strike, rate, tau, call_put)
+        super().__init__(underlying, None, rate, tau, call_put)
 
-        self.min_max = min_max
+        self.min_max = (min if self.call_put == 'call' else max)
+
 
     def get_payoff(self, spot: float) -> float:
-        compute_value = max(self.hist_prices)
+        min_max = self.min_max(self.hist_prices)
 
-        if self.floating_fixed == 'floating':
-            value = (spot, average)
-
-        if self.call_put == 'call':
-            return max(value[0] - value[1], 0)
-        else:
-            return max(value[1] - value[0], 0)
+        return max(spot - min_max, 0) if self.call_put == 'call' else max(min_max - spot, 0)
 
 
 class Barrier(Option):

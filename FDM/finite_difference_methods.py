@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.linalg import solve_banded
 import math
-from src.optionsFDM import *
+from FDM.options_FDM import *
 
 class PDESolver:
     """ Abstract class to solve Black-Scholes PDE
