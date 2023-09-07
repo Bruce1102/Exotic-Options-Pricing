@@ -67,13 +67,13 @@ The explicit scheme uses the option prices at the current time level to estimate
 
 $$V_{i-j, j} = A_{i, j} V_{i, j} + B{i, j} V_{i, j} + C_{i, j} V_{i, j} + D_{i, j}$$
 
-$$A_{i, j} = \frac{dt}{dx} (\frac{b_{i,j}}{2} - \frac{a_{i,j}}{dx}) $$
+$$A_{i, j} = \frac{\Delta t}{\Delta x} (\frac{b_{i,j}}{2} - \frac{a_{i,j}}{\Delta x}) $$
 
-$$B_{i, j} = 1 - dt c_{i,j} + \frac{2 dt a_{i, j}}{dx^2}$$
+$$B_{i, j} = 1 - \Delta t c_{i,j} + \frac{2 \Delta t a_{i, j}}{\Delta x^2}$$
 
-$$c(t, x) = - \frac{dt}{dx} (\frac{b_{i,j}}{2} - \frac{a_{i,j}}{dx})$$
+$$C(t, x) = - \frac{\Delta t}{\Delta x} (\frac{b_{i,j}}{2} - \frac{a_{i,j}}{\Delta x})$$
 
-$$c(t, x) = - dt d_{i, j} $$
+$$D(t, x) = - \Delta t d_{i, j} $$
 
 Where $V_{i,j}$ represents the option price at $i^{th}$ time level and $j^{th}$ asset price level.
 
