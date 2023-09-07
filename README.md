@@ -1,5 +1,5 @@
 <h1>Exotic Options Pricing Project</h1>
-This project focuses on the pricing of exotic options using both Monte Carlo and Finite Difference Methods (FDM). The exotic options covered in this project include Asian, American, Lookback, and Barrier options.
+This project focuses on the pricing of exotic options using both Monte Carlo and Finite Difference Methods. The exotic options covered in this project include Asian, American, Lookback, and Barrier options.
 
 
 
@@ -28,21 +28,54 @@ These options allow the holder to "look back" over time to determine the payoff.
 
 <h2> Pricing methods </h2>
 
-As these exotic options have different properties, different options will be priced with different methods. American and knock-out barrier options will be priced with Finite Different Methods (FDM) as they have a very similar PDE to the standard European option, the only difference would be boundary conditions and additional function to modify each point on the mesh grid. A regular Black Scholes PDE has two variables - value of underlying asset and time. Since Asian, Lookback, and knock-in barrier are strongly path dependent, they require an additional variable representing the historical price; using FDM to solve this PDE will require us to generate a 3D grid. To tackle this problem these options will be priced with a Monte-Carlo method.
+As these exotic options have different properties, different options will be priced with different methods. American and knock-out barrier options will be priced with Finite Different Methods as they have a very similar PDE to the standard European option, the only difference would be boundary conditions and additional function to modify each point on the mesh grid. A regular Black Scholes PDE has two variables - value of underlying asset and time. Since Asian, Lookback, and knock-in barrier are strongly path dependent, they require an additional variable representing the historical price; using FDM to solve this PDE will require us to generate a 3D grid. To tackle this problem these options will be priced with a Monte-Carlo method.
 
 
 
 <h2>Finite Difference Method (FDM):</h2>
-PDE for Exotic Options: An object-oriented approach is used to define the Partial Differential Equations (PDEs) specific to each exotic option. These PDEs capture the mathematical essence of the option's behavior.
 
-PDE Solver: The project incorporates a PDE Solver designed to solve the defined PDEs for the exotic options. This solver is built upon:
+Finite Difference Methods are numerical techniques used to approximate solutions to differential equations by discretizing them. In the context of options pricing, FDM is used to solve the Black-Scholes partial differential equation (PDE). The main idea behind FDM is to replace the derivatives in the differential equation with differences at discrete points on a grid or mesh.
 
-An Explicit Scheme: An extension class for the explicit scheme is used within the PDE Solver. This scheme provides a step-by-step method to approximate the solution of the PDEs.
-Boundary Conditions: For each exotic option, specific boundary conditions are set based on the option's characteristics. These conditions ensure the accuracy and stability of the FDM solution.
+**Grid/Mesh:**
+The grid or mesh is a set of discrete points where the solution is approximated. In the context of options pricing:
 
-Grid Generation: The FDM relies on a grid system to approximate the option's price over time and asset price. The PDE Solver generates this grid and iteratively updates its values based on the explicit scheme and boundary conditions.
+One axis (usually the x-axis) represents the underlying asset's price. This axis spans from a minimum to a maximum possible asset price. The range is chosen to be wide enough to ensure that the option's price is effectively zero at the maximum price and the minimum price.
 
-Option Pricing: Once the grid is fully populated, the option's price can be extracted from the grid values. Depending on the exotic option type and its characteristics, the price might be taken from a specific grid point or might be an aggregation of multiple grid values.
+The other axis (usually the t-axis) represents time, starting from the current time and ending at the option's expiration time.
+
+The grid's intersections represent discrete points where the option's price is estimated. The more points on the grid, the more accurate the approximation, but it also requires more computational resources.
+
+FDM Schemes:
+Each FDM scheme approximates the derivatives in the Black-Scholes PDE differently. The Black-Scholes PDE can be defined in the following equation:
+
+$$v_t = a(t, x) v{xx} + b_(t, x) v_x + c(t, x) v + d(t,x)$$
+
+$$a(t, x) = \frac{1}{2} \sigma^2 $$
+
+$$b(t, x) = -r x $$
+
+$$c(t, x) = r - dividend $$
+
+$$c(t, x) = 0 $$
+
+
+
+**1. Explicit Scheme:** 
+
+The explicit scheme uses the option prices at the current time level to estimate the option prices at the next time level. The equation for the explicit scheme is:
+
+$$V_{i-j, j} = A_{i, j} V_{i, j} + B{i, j} V_{i, j} + C_{i, j} V_{i, j} + D_{i, j}$$
+
+$$A_{i, j} = \frac{dt}{dx} (\frac{b_{i,j}}{2} - \frac{a_{i,j}}{dx}) $$
+$$B_{i, j} = 1 - dt c_{i,j} + \frac{2 dt a_{i, j}}{dx^2}$$
+$$c(t, x) = - \frac{dt}{dx} (\frac{b_{i,j}}{2} - \frac{a_{i,j}}{dx})$$
+$$c(t, x) = - dt d_{i, j} $$
+
+Where $V_{i,j}$ represents the option price at ith time level and jth asset price level.$
+
+**2. Implicit Scheme:** Unlike the explicit scheme, this method uses future values in its calculations, making it unconditionally stable. However, it often requires solving a system of linear equations, which can be computationally intensive.
+
+**3. Crank-Nicolson Scheme:** A blend of explicit and implicit schemes, it offers a balance between accuracy and stability.
 
 
 
