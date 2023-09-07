@@ -3,16 +3,18 @@ This project focuses on the pricing of exotic options using both Monte Carlo and
 
 
 <h2>Exotic Options:</h2>
-Exotic options are financial derivatives that offer more complexity than standard options in terms of their payoff conditions and structures. Here's a brief overview of the exotic options covered in this project:
+Exotic options are financial derivatives that offer more complexity than standard options in terms of their payoff conditions and structures. Below is a list of features of exotic options
 
-**1. Asian Options:** These options have their payoff determined by the average price of the underlying asset over a certain period, rather than just the final price. This averaging can either be arithmetic or geometric.
+**1. American Options (Early Exercise):** Unlike standard European options, the holder of this option has the privilage of exercising the option at any point before maturity as they wish. For American type options, the path dependency is weak, meaning the partial differential equation to be solved has no more independent variables than a European contract
 
-**2. American Options:** Unlike European options that can only be exercised at expiration, American options can be exercised at any time before or at its expiration. This flexibility often leads to them having a higher premium than European options.
+**2. Barrier Options (Weak Path Dependency):** These options become activated or deactivated when the price of the underlying asset crosses a certain barrier level. Depending on the specifics, they can be classified as knock-in or knock-out. This is considered as an exotic option due to the property of weak path dependency - The final payoff is influenced by the path taken by the underlying asset price. 
 
-**3. Lookback Options:** These options allow the holder to "look back" over time to determine the payoff. The payoff of a lookback option depends on the optimal value the underlying asset reached during the life of the option.
+**3. Asian Options (Strong Path Dependency):** These options have their payoff determined by the average price of the underlying asset over a certain period, rather than just the final price. This averaging can either be arithmetic or geometric. Strong path dependence in financial options refers to a characteristic where the final payoff of the option is highly sensitive and contingent on the specific historical price path taken by the underlying asset. In other words, the cumulative price movements of the asset over time significantly influence the option's ultimate value.
 
-**4. Barrier Options:** These options become activated or deactivated when the price of the underlying asset crosses a certain barrier level. Depending on the specifics, they can be classified as knock-in or knock-out.
+**3. Lookback Options (Strong Path Dependency):** These options allow the holder to "look back" over time to determine the payoff. The payoff of a lookback option depends on the optimal value the underlying asset reached during the life of the option. Similar to Asian options, lookback options are a form of strong path dependency as the payoff of this option is solely dependent on the path taken by the underlying asset.
 
+<h2> Pricing methods </h2>
+As these exotic options have different properties, different options will be priced with different methods. American and knock-out barrier options will be priced with Finite Different Methods (FDM) as they have a very similar PDE to the standard European option, the only difference would be boundary conditions and additional function to modify each point on the mesh grid. A regular Black Scholes PDE has two variables - value of underlying asset and time. Since Asian, Lookback, and knock-in barrier are strongly path dependent, they require an additional variable representing the historical price; using FDM to solve this PDE will require us to generate a 3D grid. To tackle this problem these options will be priced with a Monte-Carlo method.
 
 
 <h2>Monte Carlo Method:</h2>
