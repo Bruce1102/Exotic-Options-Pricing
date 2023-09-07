@@ -48,7 +48,7 @@ The grid's intersections represent discrete points where the option's price is e
 FDM Schemes:
 Each FDM scheme approximates the derivatives in the Black-Scholes PDE differently. The Black-Scholes PDE can be defined in the following equation:
 
-$$v_t = a(t, x) v{xx} + b_(t, x) v_x + c(t, x) v + d(t,x)$$
+$$V_t = a(t, x) V_{xx} + b_(t, x) V_x + c(t, x)  + d(t,x)$$
 
 $$a(t, x) = \frac{1}{2} \sigma^2 $$
 
