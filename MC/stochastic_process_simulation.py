@@ -2,9 +2,11 @@ import numpy as np
 import math
 from scipy.stats import ncx2
 from scipy.optimize import minimize
+import statsmodels.api as sm
 
 class StochasticProcessSimulation:
-    def __init__(self, initial_price: float, mu: float, sigma: float, tau: float, dividend: float=0, n_steps:int = 1_000):
+    def __init__(self, initial_price: float=100, mu: float=0.05, sigma: float=0.1, tau: float=1, 
+                 dividend: float=0, n_steps:int = 1_000):
         """ Initialize the StochasticProcessSimulation.
 
         Parameters:
@@ -23,9 +25,8 @@ class StochasticProcessSimulation:
         self.dt                = tau / n_steps
         self.n_steps           = n_steps
         self.simulation        = np.zeros(n_steps) # Initialising price simulation
-        self.simulation[0]     = self.initial_price
-        self.initial_params    = [0.01, 0.1]
-        self.bounds            = [(0, None), (0, 1)]
+        self.params            = [self.mu, self.sigma]
+        self.bounds            = [(None, None), (0, 1)]
 
     def negative_log_likelihood(self, params, data, dt):
         """Negative log-likelihood computation specific to GBM."""
@@ -46,11 +47,13 @@ class StochasticProcessSimulation:
 
     def fit(self, data, dt):
         """Universal fit method."""
-        result = minimize(self.negative_log_likelihood, self.initial_params, args=(data, dt), bounds=self.bounds)
+        self.initial_price = data[0]
+
+        result = minimize(self.negative_log_likelihood, self.params, args=(data, dt), bounds=self.bounds, method='Nelder-Mead')
         
         if result.success:
             self.set_params(result.x)
-            return result.x
+            return self, result.x
         else:
             raise ValueError("MLE optimization did not converge.")
 
@@ -69,6 +72,7 @@ class StochasticProcessSimulation:
 
     def simulate(self):
         """Simulate the price dynamics using the drift-diffusion model."""
+        self.simulation[0] = self.initial_price
         for i in range(1, self.n_steps):
             self.simulation[i] = self.simulation[i-1] + self.drift_diffusion(self.simulation[i-1])
 
@@ -78,7 +82,8 @@ class StochasticProcessSimulation:
 
 
 class VasicekProcess(StochasticProcessSimulation): 
-    def __init__(self, initial_price:float, k: float, theta: float, sigma:float, tau:float, n_steps:int = 1_000):
+    def __init__(self, initial_price:float=100, k: float=0.1, theta: float=0.05, sigma:float=0.1, 
+                 tau:float=1, dividend: float=0, n_steps:int = 1_000):
         """ Initialize the Vasicek Process.
 
         Parameters:
@@ -91,31 +96,33 @@ class VasicekProcess(StochasticProcessSimulation):
         - tau           : duration of simulation (in years)
         - n_steps       : number of time step to simulate.
         """
-        super().__init__(initial_price, None, sigma, tau, n_steps)
+        super().__init__(initial_price, 0, sigma, tau, dividend, n_steps)
         self.k      = k
         self.theta  = theta
-
-        self.initial_params = [0.1, 0.05, 0.1]
-        self.bounds = [(0, None), (0, None), (1e-5, 1)]
+        self.params = [self.k, self.theta, self.sigma]
+        self.bounds = [(None, None), (None, None), (0, 1)]
         
 
     def set_params(self, params):
+        """Setting given parameters to itself"""
         self.k = params[0]
         self.theta = params[1]
         self.sigma = params[2]
 
-    def negative_log_likelihood(self, params, data):
+    def negative_log_likelihood(self, params, data, dt):
         """Negative log-likelihood computation specific to Vasicek."""
         k, theta, sigma = params
-        n = len(data) - 1
+        n = len(data) - 1  # Number of log-returns
         
-        dt = self.dt
-        sigma_adj = sigma * np.sqrt((1 - np.exp(-2 * k * dt)) / (2 * k))
-        mu_adj = data[:-1] * np.exp(-k * dt) + theta * (1 - np.exp(-k * dt))
+        mu = data[:-1] + k * (theta - data[:-1]) * dt
+
+        log_returns = np.log(data[1:] / data[:-1])# Compute the log-returns
         
-        log_likelihood = -0.5 * n * np.log(2 * np.pi * sigma_adj**2) - 0.5 * np.sum((data[1:] - mu_adj)**2 / sigma_adj**2)
+        # Compute the log-likelihood
+        log_likelihood = -0.5 * n * np.log(2 * np.pi * sigma**2 * dt) - 0.5 * np.sum((log_returns - mu*dt)**2 / (sigma**2 * dt))
         
         return -log_likelihood
+        
 
     def _drift(self, price:float) -> float:
         """Override the drift term for Vasicek Process."""
@@ -125,14 +132,14 @@ class VasicekProcess(StochasticProcessSimulation):
 
 
 class CIRProcess(VasicekProcess): 
-    def __init__(self, initial_price:float, k: float, theta: float, sigma:float, tau:float, n_steps:int = 1_000):
+    def __init__(self, initial_price:float=100, k: float=0.1, theta: float=0.05, sigma:float=0.1, 
+                 tau: float=1, dividend: float=0, n_steps:int = 1_000):
         """ Initialize the Vasicek Process.
 
         Parameters:
         - initial_price : Initial asset price.
         - k             : Speed of mean reversion
         - theta         : Amplitude of mean reversion
-        - mu            : Drift term or mean term
         - sigma         : diffusion term or volatility of the asset.
         - lambda_jump   : Intensity of the jump.
         - tau           : duration of simulation (in years)
@@ -140,20 +147,40 @@ class CIRProcess(VasicekProcess):
         """
         super().__init__(initial_price, k, theta, sigma, tau, n_steps)
 
-    def negative_log_likelihood(self, params, data):
-        """Negative log-likelihood computation specific to CIR."""
-        k, theta, sigma = params
-        n = len(data) - 1
-        
-        dt = self.dt
-        c = 2 * k / (sigma**2 * (1 - np.exp(-k * dt)))
-        q = 2 * k * theta / sigma**2 - 1
-        u = c * np.exp(-k * dt) * data[:-1]
-        v = c * data[1:]
-        
-        log_likelihood = np.sum(np.log(ncx2.pdf(v, df=q, nc=u)))
-        
-        return -log_likelihood
+    def negative_log_likelihood(self, params, data, dt):
+        k = params[0]
+        theta = params[1]
+        sigma = params[2]
+
+        n = len(data)
+        likelihoods = []
+        for t in range(1, n):
+            mu = k * (theta - data[t-1]) * dt
+            sigma_t = sigma * np.sqrt(data[t-1] * dt)
+            likelihood = (1 / (sigma_t * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((data[t] - data[t-1] - mu) / sigma_t)**2)
+            likelihoods.append(np.log(likelihood))
+        return -sum(likelihoods)
+
+    def fit(self, data, dt):
+        """Universal fit method."""
+        self.initial_price = data[0]
+
+        # Regularization term
+        lambda_reg = 1e-5
+
+        def regularized_nll(params, data, dt):
+            k, theta, sigma = params
+            nll = self.negative_log_likelihood(params, data, dt)
+            return nll + lambda_reg * sigma**2
+
+        result = minimize(regularized_nll, self.params, args=(data, dt), bounds=self.bounds, method='Nelder-Mead')
+
+        if result.success:
+            self.set_params(result.x)
+            return self, result.x
+        else:
+            raise ValueError("MLE optimization did not converge.")
+
 
     def _diffusion(self, price:float) -> float:
         """Override the diffusion term for CIR Process."""
@@ -162,7 +189,7 @@ class CIRProcess(VasicekProcess):
 
 
 class StochasticVolatility(StochasticProcessSimulation):
-    def __init__(self, initial_price:float, mu:float, volatility_process:CIRProcess, tau:float, n_steps:int = 1_000):
+    def __init__(self, initial_price:float, volatility_process:CIRProcess, mu: float=0.01, tau:float=1, n_steps:int = 1_000):
         """
         Initialize the Stochastic Volatility model.
 
@@ -179,8 +206,10 @@ class StochasticVolatility(StochasticProcessSimulation):
         volatility_process.simulate()
         self.volatilities = volatility_process.get_simulation()
 
+        self.params = [self.mu]
 
-    def negative_log_likelihood(self, params, data):
+
+    def negative_log_likelihood(self, params, data, dt):
         # Extract parameters. Now, only mu is the parameter to be estimated.
         mu = params[0]
         
@@ -191,10 +220,14 @@ class StochasticVolatility(StochasticProcessSimulation):
         log_returns = np.log(data[1:] / data[:-1])
         
         # Compute likelihood for stock prices given volatilities
-        expected_log_returns = mu * self.dt
-        log_likelihood = -0.5 * np.sum((log_returns - expected_log_returns)**2 / volatilities[:-1]) - 0.5 * len(log_returns) * np.log(2 * np.pi * self.dt)
+        expected_log_returns = mu * dt
+        log_likelihood = -0.5 * np.sum((log_returns - expected_log_returns)**2 / volatilities[:-1]) - 0.5 * len(log_returns) * np.log(2 * np.pi * dt)
         
         return -log_likelihood
+
+    def set_params(self, params):
+        """Setting given parameters to itself"""
+        self.mu = mu
 
     def _volatility_diffusion(self, price, volatility):
         return price * np.sqrt(volatility) * np.sqrt(self.dt) * np.random.normal()
@@ -216,7 +249,7 @@ class StochasticVolatility(StochasticProcessSimulation):
 class Jump:
     def __init__(self, lambda_jump: float, mu_jump: float, sigma_jump: float, dt:float):
         """
-        Initialize the Kou's Jump Process.
+        Initialize the Merton's Jump Process.
 
         Parameters:
         - lambda_jump : Expected number of jumps per year.
@@ -227,6 +260,9 @@ class Jump:
         self.mu_jump = mu_jump
         self.sigma_jump = sigma_jump
         self.dt = dt
+
+        self.initial_params = [0.1, 0.05, 0.1]
+        self.bounds = [(0, None), (0, None), (1e-5, 1)]
 
     def compute_jump(self, price:float) -> float:
         """
@@ -249,35 +285,6 @@ class Jump:
         
         return price * dJ_t
 
-# class KouJump(Jump):
-#     def __init__(self, lambda_jump: float, p: float, lambda_positive: float, lambda_negative: float):
-#         """
-#         Initialize the Kou's Jump Process.
-
-#         Parameters:
-#         - lambda_jump    : Intensity of the jump.
-#         - p              : Probability of positive jump.
-#         - lambda_positive: Parameter for positive exponential distribution.
-#         - lambda_negative: Parameter for negative exponential distribution.
-#         """
-#         super().__init__(lambda_jump, None)  # No size_jump for Kou's model in the parent class
-#         self.p = p
-#         self.lambda_positive = lambda_positive
-#         self.lambda_negative = lambda_negative
-
-#     def jump_sizes(self, interval_length: float) -> np.array:
-#         """Compute the sizes of the jumps over the given interval using Kou's model."""
-#         num_jumps = np.random.poisson(self.lambda_jump * interval_length)
-#         jump_sizes = np.zeros(num_jumps)
-        
-#         for i in range(num_jumps):
-#             if np.random.uniform() < self.p:
-#                 jump_sizes[i] = np.random.exponential(scale=1/self.lambda_positive)
-#             else:
-#                 jump_sizes[i] = -np.random.exponential(scale=1/self.lambda_negative)
-        
-#         return jump_sizes
-
 class StochasticJumpProcess:
     def __init__(self, stochastic_process, jump_process: Jump, initial_price: float, n_steps: int = 1_000):
         """Initialize the stochastic process with jumps."""
@@ -291,6 +298,49 @@ class StochasticJumpProcess:
 
         if isinstance(self.stochastic_process, StochasticVolatility):
             self.stochastic_process.volatility_process.simulate()
+
+    def negative_log_likelihood(self, params, data):
+        # Split the parameters for the two processes
+        params_stochastic = params[:len(self.stochastic_process.initial_params)]
+        params_jump = params[len(self.stochastic_process.initial_params):]
+
+        # Compute the expected jumps for the given parameters and data
+        expected_jumps = [self.jump_process.compute_jump(price) for price in data[:-1]]
+
+        # Adjust the data for the jumps to get the returns due to the underlying stochastic process
+        adjusted_data = data[1:] - data[:-1] - expected_jumps
+        adjusted_data = np.concatenate(([data[0]], adjusted_data))  # Add back the initial price
+
+        # Compute the negative log-likelihoods for the two processes
+        nll_stochastic = self.stochastic_process.negative_log_likelihood(params_stochastic, adjusted_data)
+        nll_jump = self.jump_process.negative_log_likelihood(params_jump, data)
+
+        # Return the combined negative log-likelihood
+        return nll_stochastic + nll_jump
+
+    def fit(self, data):
+        """Fit the model to the given data using MLE."""
+        
+        # Define the combined negative log-likelihood function
+        def combined_nll(params_combined):
+            return self.negative_log_likelihood(params_combined, data)
+
+        # Initial parameters: combining both stochastic process and jump process parameters
+        initial_params_combined = self.stochastic_process.initial_params + self.jump_process.initial_params
+
+        # Bounds: combining both stochastic process and jump process bounds
+        bounds_combined = self.stochastic_process.bounds + self.jump_process.bounds
+
+        # Optimize the combined negative log-likelihood
+        result = minimize(combined_nll, initial_params_combined, bounds=bounds_combined)
+
+        if result.success:
+            # Update the parameters of the stochastic process and the jump process
+            self.stochastic_process.set_params(result.x[:len(self.stochastic_process.initial_params)])
+            self.jump_process.set_params(result.x[len(self.stochastic_process.initial_params):])
+            return result.x
+        else:
+            raise ValueError("MLE optimization did not converge.")
 
     def simulate(self):
         """Simulate the price dynamics with jumps."""
