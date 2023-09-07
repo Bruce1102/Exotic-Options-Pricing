@@ -37,6 +37,7 @@ As these exotic options have different properties, different options will be pri
 Finite Difference Methods are numerical techniques used to approximate solutions to differential equations by discretizing them. In the context of options pricing, FDM is used to solve the Black-Scholes partial differential equation (PDE). The main idea behind FDM is to replace the derivatives in the differential equation with differences at discrete points on a grid or mesh.
 
 **Grid/Mesh:**
+
 The grid or mesh is a set of discrete points where the solution is approximated. In the context of options pricing:
 
 One axis (usually the x-axis) represents the underlying asset's price. This axis spans from a minimum to a maximum possible asset price. The range is chosen to be wide enough to ensure that the option's price is effectively zero at the maximum price and the minimum price.
@@ -45,7 +46,7 @@ The other axis (usually the t-axis) represents time, starting from the current t
 
 The grid's intersections represent discrete points where the option's price is estimated. The more points on the grid, the more accurate the approximation, but it also requires more computational resources.
 
-FDM Schemes:
+<h3> FDM Schemes: </h3>
 Each FDM scheme approximates the derivatives in the Black-Scholes PDE differently. The Black-Scholes PDE can be defined in the following equation:
 
 $$\frac{\partial V}{\partial t} = a(t, x) \frac{\partial^2 V}{\partial x^2} + b_(t, x) \frac{\partial V}{\partial x} + c(t, x) V(t, x)  + d(t,x)$$
