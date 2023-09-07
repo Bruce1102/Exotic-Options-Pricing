@@ -25,12 +25,30 @@ These options have their payoff determined by the average price of the underlyin
 These options allow the holder to "look back" over time to determine the payoff. The payoff of a lookback option depends on the optimal value the underlying asset reached during the life of the option. Similar to Asian options, lookback options are a form of strong path dependency as the payoff of this option is solely dependent on the path taken by the underlying asset.
 
 
+
 <h2> Pricing methods </h2>
 
 As these exotic options have different properties, different options will be priced with different methods. American and knock-out barrier options will be priced with Finite Different Methods (FDM) as they have a very similar PDE to the standard European option, the only difference would be boundary conditions and additional function to modify each point on the mesh grid. A regular Black Scholes PDE has two variables - value of underlying asset and time. Since Asian, Lookback, and knock-in barrier are strongly path dependent, they require an additional variable representing the historical price; using FDM to solve this PDE will require us to generate a 3D grid. To tackle this problem these options will be priced with a Monte-Carlo method.
 
 
+
+<h2>Finite Difference Method (FDM):</h2>
+PDE for Exotic Options: An object-oriented approach is used to define the Partial Differential Equations (PDEs) specific to each exotic option. These PDEs capture the mathematical essence of the option's behavior.
+
+PDE Solver: The project incorporates a PDE Solver designed to solve the defined PDEs for the exotic options. This solver is built upon:
+
+An Explicit Scheme: An extension class for the explicit scheme is used within the PDE Solver. This scheme provides a step-by-step method to approximate the solution of the PDEs.
+Boundary Conditions: For each exotic option, specific boundary conditions are set based on the option's characteristics. These conditions ensure the accuracy and stability of the FDM solution.
+
+Grid Generation: The FDM relies on a grid system to approximate the option's price over time and asset price. The PDE Solver generates this grid and iteratively updates its values based on the explicit scheme and boundary conditions.
+
+Option Pricing: Once the grid is fully populated, the option's price can be extracted from the grid values. Depending on the exotic option type and its characteristics, the price might be taken from a specific grid point or might be an aggregation of multiple grid values.
+
+
+
 <h2>Monte Carlo Method:</h2>
+
+In this code, the Monte-Carlo pricing method includes 3 parts, stochastic process modelling, options initialisation and finally running the Monte-Carlo simulation. Stochastic process modelling is responsible for modelling the underlying asset's price dynamics. Options initialisation is for creating an options contract based on the underlying asset's stochastic process. The Monte-Carlo simulation will be responsible for simulating the random paths and computing the fair value of the option contract today.
 
 <h3>Stochastic Process Modeling:</h3>
 
@@ -75,6 +93,19 @@ Where:
 <h3>Option Classes:</h3> 
 For each type of exotic option, a dedicated class is defined. These classes provide functionalities to simulate the asset's behavior and compute its payoff.
 
+- **1. Asian Option:**
+
+Simulate price of underlying asset, compute the average price of the path taken. Compare with the spot price or the provided strike price (depending whether it is a floating or fixed Asian option)
+
+- **2. Barrier Option:**
+
+The 'BarrierOption' class contains an boolean attribute 'knocked_in' or 'knocked_out'. The purpose of this attribute is to indicate whether the option has surpassed the barrier hence causing the option to become valueless.
+
+
+- **3. Lookback Option:**
+
+The 'LookbackOption' class contains a attribute 'hist_low' and 'hist_high' which represents the lowest and highest price in the simulated prices. These values will be used to determine the payoff of the option.
+
 
 <h3>Monte Carlo Simulation:</h3>
 
@@ -82,26 +113,12 @@ The Monte Carlo method is a powerful computational technique used in a wide rang
 
 The Monte Carlo simulation will be ran by following these steps:
 
-**1. Stochastic Process Modeling:** The first step is to model the stochastic behavior of the underlying asset's price. This will be done with the models described previously
+**1. Random Sampling:** Monte Carlo simulations generate a large number of random price paths for the underlying asset based on the chosen stochastic process. These price paths simulate the potential future trajectories of the asset's price.
 
-**2. Random Sampling:** Monte Carlo simulations generate a large number of random price paths for the underlying asset based on the chosen stochastic process. These price paths simulate the potential future trajectories of the asset's price.
+**2. Option Payoff Calculation:** For each generated price path, the payoff of the exotic option is computed. This step involves applying the specific conditions and terms of the exotic option to determine its value at the end of each simulation.
 
-**3. Option Payoff Calculation:** For each generated price path, the payoff of the exotic option is computed. This step involves applying the specific conditions and terms of the exotic option to determine its value at the end of each simulation.
+**3. Statistical Analysis:** After running a significant number of simulations, statistical analysis is performed on the calculated payoffs. This analysis provides insights into the distribution of possible option values, including measures like the mean (expected value) and standard deviation (volatility).
 
-**4. Statistical Analysis:** After running a significant number of simulations, statistical analysis is performed on the calculated payoffs. This analysis provides insights into the distribution of possible option values, including measures like the mean (expected value) and standard deviation (volatility).
+**4. Discounting:** To obtain the present value of the option, the calculated payoffs are discounted back to the present time using the risk-free rate. This step considers the time value of money.
 
-**5. Discounting:** To obtain the present value of the option, the calculated payoffs are discounted back to the present time using the risk-free rate. This step considers the time value of money.
-
-**6. Option Price Estimation:** The final step involves aggregating the present values of the option payoffs to estimate the option's fair market price. This Monte Carlo estimate reflects the expected value of the exotic option under the assumed stochastic process.
-
-<h2>Finite Difference Method (FDM):</h2>
-PDE for Exotic Options: An object-oriented approach is used to define the Partial Differential Equations (PDEs) specific to each exotic option. These PDEs capture the mathematical essence of the option's behavior.
-
-PDE Solver: The project incorporates a PDE Solver designed to solve the defined PDEs for the exotic options. This solver is built upon:
-
-An Explicit Scheme: An extension class for the explicit scheme is used within the PDE Solver. This scheme provides a step-by-step method to approximate the solution of the PDEs.
-Boundary Conditions: For each exotic option, specific boundary conditions are set based on the option's characteristics. These conditions ensure the accuracy and stability of the FDM solution.
-
-Grid Generation: The FDM relies on a grid system to approximate the option's price over time and asset price. The PDE Solver generates this grid and iteratively updates its values based on the explicit scheme and boundary conditions.
-
-Option Pricing: Once the grid is fully populated, the option's price can be extracted from the grid values. Depending on the exotic option type and its characteristics, the price might be taken from a specific grid point or might be an aggregation of multiple grid values.
+**5. Option Price Estimation:** The final step involves aggregating the present values of the option payoffs to estimate the option's fair market price. This Monte Carlo estimate reflects the expected value of the exotic option under the assumed stochastic process.
