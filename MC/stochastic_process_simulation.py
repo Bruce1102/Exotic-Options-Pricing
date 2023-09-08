@@ -25,6 +25,7 @@ class StochasticProcessSimulation:
         self.dt                = tau / n_steps
         self.n_steps           = n_steps
         self.simulation        = np.zeros(n_steps) # Initialising price simulation
+
         self.params            = [self.mu, self.sigma]
         self.bounds            = [(None, None), (0, 1)]
 
@@ -49,14 +50,13 @@ class StochasticProcessSimulation:
         """Universal fit method."""
         self.initial_price = data[0]
 
-        result = minimize(self.negative_log_likelihood, self.params, args=(data, dt), bounds=self.bounds, method='Nelder-Mead')
+        result = minimize(self.negative_log_likelihood, self.params, args=(data, dt), bounds=self.bounds)
         
         if result.success:
             self.set_params(result.x)
             return self, result.x
         else:
             raise ValueError("MLE optimization did not converge.")
-
 
     def _drift(self, price:float) -> float:
         """Compute the drift term for the given price."""
@@ -82,7 +82,7 @@ class StochasticProcessSimulation:
 
 
 class VasicekProcess(StochasticProcessSimulation): 
-    def __init__(self, initial_price:float=100, k: float=0.1, theta: float=0.05, sigma:float=0.1, 
+    def __init__(self, initial_price:float=100, k: float=0.1, theta: float=0.05, sigma:float=0.2, 
                  tau:float=1, dividend: float=0, n_steps:int = 1_000):
         """ Initialize the Vasicek Process.
 
@@ -99,30 +99,27 @@ class VasicekProcess(StochasticProcessSimulation):
         super().__init__(initial_price, 0, sigma, tau, dividend, n_steps)
         self.k      = k
         self.theta  = theta
-        self.params = [self.k, self.theta, self.sigma]
-        self.bounds = [(None, None), (None, None), (0, 1)]
-        
+        self.params = [self.k]
+        self.bounds = [(0.00001, None)]
 
-    def set_params(self, params):
-        """Setting given parameters to itself"""
-        self.k = params[0]
-        self.theta = params[1]
-        self.sigma = params[2]
-
-    def negative_log_likelihood(self, params, data, dt):
-        """Negative log-likelihood computation specific to Vasicek."""
-        k, theta, sigma = params
-        n = len(data) - 1  # Number of log-returns
-        
-        mu = data[:-1] + k * (theta - data[:-1]) * dt
-
-        log_returns = np.log(data[1:] / data[:-1])# Compute the log-returns
+    def _find_k(self, k: float, data: np.array, dt: float) -> float:
+        """negative_log_likelihood for finding the parameter k"""
+        n = len(data) - 1
+        mu = k * (self.theta - data[:-1]) * dt
+        sigma_adj = self.sigma * np.sqrt(dt)
         
         # Compute the log-likelihood
-        log_likelihood = -0.5 * n * np.log(2 * np.pi * sigma**2 * dt) - 0.5 * np.sum((log_returns - mu*dt)**2 / (sigma**2 * dt))
+        log_likelihood = -0.5 * n * np.log(2 * np.pi * sigma_adj**2) - 0.5 * np.sum((data[1:] - data[:-1] - mu)**2 / sigma_adj**2)
         
         return -log_likelihood
-        
+
+    def fit(self, data, dt):
+        self.initial_price = data[0]
+        self.theta = data.mean()
+        self.sigma = (data.std()/data.mean())*np.sqrt(1/dt)
+
+        results = minimize(self._find_k, [0.1], args = (data, dt), bounds=self.bounds)
+        self.k = results.x
 
     def _drift(self, price:float) -> float:
         """Override the drift term for Vasicek Process."""
@@ -146,41 +143,6 @@ class CIRProcess(VasicekProcess):
         - n_steps       : number of time step to simulate.
         """
         super().__init__(initial_price, k, theta, sigma, tau, n_steps)
-
-    def negative_log_likelihood(self, params, data, dt):
-        k = params[0]
-        theta = params[1]
-        sigma = params[2]
-
-        n = len(data)
-        likelihoods = []
-        for t in range(1, n):
-            mu = k * (theta - data[t-1]) * dt
-            sigma_t = sigma * np.sqrt(data[t-1] * dt)
-            likelihood = (1 / (sigma_t * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((data[t] - data[t-1] - mu) / sigma_t)**2)
-            likelihoods.append(np.log(likelihood))
-        return -sum(likelihoods)
-
-    def fit(self, data, dt):
-        """Universal fit method."""
-        self.initial_price = data[0]
-
-        # Regularization term
-        lambda_reg = 1e-5
-
-        def regularized_nll(params, data, dt):
-            k, theta, sigma = params
-            nll = self.negative_log_likelihood(params, data, dt)
-            return nll + lambda_reg * sigma**2
-
-        result = minimize(regularized_nll, self.params, args=(data, dt), bounds=self.bounds, method='Nelder-Mead')
-
-        if result.success:
-            self.set_params(result.x)
-            return self, result.x
-        else:
-            raise ValueError("MLE optimization did not converge.")
-
 
     def _diffusion(self, price:float) -> float:
         """Override the diffusion term for CIR Process."""
