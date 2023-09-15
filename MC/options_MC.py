@@ -157,7 +157,7 @@ class American(Option):
         early_exercise_val = self.early_exercise_value(spot, time)
 
         # Calculate the expected value if the option is held (this is a placeholder and should be replaced with a proper model)
-        continuation_val = self.get_payoff(spot)  # This is a simplification; in practice, you'd use a model like binomial tree or finite difference method.
+        continuation_val = self.get_payoff(spot)
 
         # Return the maximum of the two values
         return max(early_exercise_val, continuation_val)
