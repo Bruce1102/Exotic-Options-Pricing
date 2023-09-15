@@ -65,7 +65,7 @@ $$c(t, x) = 0 $$
 
 The explicit scheme uses the option prices at the current time level to estimate the option prices at the next time level. The equation for the explicit scheme is:
 
-$$V_{i-j, j} = A_{i, j} V_{i, j} + B{i, j} V_{i, j} + C_{i, j} V_{i, j} + D_{i, j}$$
+$$V_{i-1, j} = A_{i, j} V_{i, j-1} + B{i, j} V_{i, j} + C_{i, j} V_{i, j+1} + D_{i, j}$$
 
 $$A_{i, j} = \frac{\Delta t}{\Delta x} (\frac{b_{i,j}}{2} - \frac{a_{i,j}}{\Delta x}) $$
 
@@ -77,11 +77,27 @@ $$D(t, x) = - \Delta t d_{i, j} $$
 
 Where $V_{i,j}$ represents the option price at $i^{th}$ time level and $j^{th}$ asset price level.
 
-**2. Implicit Scheme:** Unlike the explicit scheme, this method uses future values in its calculations, making it unconditionally stable. However, it often requires solving a system of linear equations, which can be computationally intensive.
+**2. Implicit Scheme:** 
 
-**3. Crank-Nicolson Scheme:** A blend of explicit and implicit schemes, it offers a balance between accuracy and stability.
+Unlike the explicit scheme, this method uses future values in its calculations, making it unconditionally stable. However, it often requires solving a system of linear equations, which can be computationally intensive.
 
+$$V_{i+1, j} = A_{i, j} V_{i, j+1} + B{i, j} V_{i, j} + C_{i, j} V_{i, j-1} + D_{i, j}$$
 
+$$A_{i,j} = - \frac{\delta t}{\delta x} (\frac{b_{i,j}}{2} + \frac{a_{i,j}}{\delta x^2})$$
+
+$$B_{i,j} = 1 + \delta t c_{i,j} - \frac{2 \delta t a_{i,j}}{\delta x^2}$$
+
+$$C_{i,j} = \frac{\delta t}{\delta x} (\frac{b_{i,j}}{2} + \frac{a_{i,j}}{\delta x^2})$$
+
+$$D_{i,j} = \delta t d_{i,j}$$
+
+**3. Crank-Nicolson Scheme:** 
+
+A blend of explicit and implicit schemes, it offers a balance between accuracy and stability.
+
+$$V_{i-j, j} = \frac{1}{2}(\text{Explicit Scheme + Implicit Scheme})$$
+
+This method provides a more accurate approximation than either the explicit or implicit schemes alone, especially for problems where the solution exhibits rapid changes.
 
 <h2>Monte Carlo Method:</h2>
 
